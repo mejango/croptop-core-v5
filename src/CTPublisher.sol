@@ -168,7 +168,7 @@ contract CTPublisher is JBPermissioned, ERC2771Context, ICTPublisher {
         minimumPrice = uint256(uint104(packed));
         // minimum supply in bits 104-135 (32 bits).
         minimumTotalSupply = uint256(uint32(packed >> 104));
-        // minimum supply in bits 136-67 (32 bits).
+        // maximum supply in bits 136-167 (32 bits).
         maximumTotalSupply = uint256(uint32(packed >> 136));
 
         allowedAddresses = _allowedAddresses[hook][category];
@@ -184,6 +184,9 @@ contract CTPublisher is JBPermissioned, ERC2771Context, ICTPublisher {
     }
 
     /// @notice Check if an address is included in an allow list.
+    /// @dev Uses an O(n) linear scan over the `addresses` array. This is acceptable for typical allow list sizes
+    /// (fewer than ~100 addresses), where gas cost is negligible. For very large allow lists, a Merkle proof
+    /// pattern would scale better, but the added complexity is not warranted for the expected use case.
     /// @param addrs The candidate address.
     /// @param addresses An array of allowed addresses.
     function _isAllowed(address addrs, address[] memory addresses) internal pure returns (bool) {
@@ -309,6 +312,9 @@ contract CTPublisher is JBPermissioned, ERC2771Context, ICTPublisher {
 
             if (projectId != FEE_PROJECT_ID) {
                 // Keep a reference to the fee that will be paid.
+                // Note: integer division truncates, so the fee loses up to (FEE_DIVISOR - 1) wei of dust.
+                // For example, a totalPrice of 39 wei with FEE_DIVISOR=20 yields a fee of 1 wei instead of 1.95.
+                // This rounding is in the payer's favor and the loss is negligible for practical amounts.
                 payValue -= totalPrice / FEE_DIVISOR;
             }
 
